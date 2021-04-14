@@ -1,6 +1,8 @@
 PyWall
 ======
 
+**Note: This version of PyWall is modified for purposes of my master thesis purposes - "Blocking encrypted malware TCP traffic."**
+
 A Python firewall: Because slow networks are secure networks.
 
 
