@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import select
 import logging
+from config import TCP_STATES
 
 
 class PyWallCracker(object):
@@ -42,46 +43,48 @@ class PyWallCracker(object):
 
         """
         tup, syn, ack, fin = report
-        curr = self.connections.get(tup, 'CLOSED')
+        curr = self.connections.get(tup, TCP_STATES.CLOSED)
+        # print("[DEBUG]: CURR = {}".format(curr))
+        # print("[DEBUG]: TCP_STATES.CLOSED = {}".format(TCP_STATES.CLOSED))
         l = logging.getLogger('pywall.contrack')
         new = None
-        if curr == "CLOSED":
+        if curr == TCP_STATES.CLOSED:
             if syn:
-                new = 'SYN_RCVD1'
+                new = TCP_STATES.SYN_RCVD1
             else:  # Otherwise, assume this was started before firewall ran.
-                new = 'ESTABLISHED'
-        elif curr == 'SYN_RCVD2':
+                new = TCP_STATES.ESTABLISHED
+        elif curr == TCP_STATES.SYN_RCVD2:
             if ack:
-                new = 'ESTABLISHED'
-        elif curr == 'SYN_SENT1':
+                new = TCP_STATES.ESTABLISHED
+        elif curr == TCP_STATES.SYN_SENT1:
             if syn and ack:
-                new = 'SYN_SENT2'
+                new = TCP_STATES.SYN_SENT2
             elif syn:
-                new = 'SYN_SENT3'
-        elif curr == 'ESTABLISHED':
+                new = TCP_STATES.SYN_SENT3
+        elif curr == TCP_STATES.ESTABLISHED:
             if fin:
-                new = 'CLOSE_WAIT1'
+                new = TCP_STATES.CLOSE_WAIT1
             else:
-                new = 'ESTABLISHED'
-        elif curr == 'FIN_WAIT_1':
+                new = TCP_STATES.ESTABLISHED
+        elif curr == TCP_STATES.FIN_WAIT_1:
             if fin and ack:
-                new = 'FIN_WAIT_3'
+                new = TCP_STATES.FIN_WAIT_3
             elif ack:
-                new = 'FIN_WAIT_2'
+                new = TCP_STATES.FIN_WAIT_2
             elif fin:
-                new = 'CLOSING'
-        elif curr == 'FIN_WAIT_2':
+                new = TCP_STATES.CLOSING
+        elif curr == TCP_STATES.FIN_WAIT_2:
             if fin:
-                new = 'FIN_WAIT_3'
-        elif curr == 'CLOSING':
+                new = TCP_STATES.FIN_WAIT_3
+        elif curr == TCP_STATES.CLOSING:
             if ack:
-                new = 'FIN_WAIT_3'
-        elif curr == 'CLOSING2':
+                new = TCP_STATES.FIN_WAIT_3
+        elif curr == TCP_STATES.CLOSING2:
             if ack:
-                new = 'CLOSED'
-        elif curr == 'LAST_ACK':
+                new = TCP_STATES.CLOSED
+        elif curr == TCP_STATES.LAST_ACK:
             if ack:
-                new = 'CLOSED'
+                new = TCP_STATES.CLOSED
 
         if new is None:
             # Log undefined transitions and don't change the state of the
@@ -107,48 +110,49 @@ class PyWallCracker(object):
 
         """
         tup, syn, ack, fin = report
-        curr = self.connections.get(tup, 'CLOSED')
+        curr = self.connections.get(tup, TCP_STATES.CLOSED)
+        # print("[DEBUG]: CURR = {}".format(curr))
         l = logging.getLogger('pywall.contrack')
         new = None
-        if curr == 'CLOSED':
+        if curr == TCP_STATES.CLOSED:
             if syn:
-                new = 'SYN_SENT1'
+                new = TCP_STATES.SYN_SENT1
             else:  # Assume this was running before hand.
-                new = 'ESTABLISHED'
-        elif curr == 'SYN_SENT1':
+                new = TCP_STATES.ESTABLISHED
+        elif curr == TCP_STATES.SYN_SENT1:
             if syn:
-                new = 'SYN_SENT1'  # This means we are retrying a connection.
-        elif curr == 'SYN_RCVD1':
+                new = TCP_STATES.SYN_SENT1  # This means we are retrying a connection.
+        elif curr == TCP_STATES.SYN_RCVD1:
             if syn and ack:
-                new = 'SYN_RCVD2'
-        elif curr == 'SYN_RCVD2':
+                new = TCP_STATES.SYN_RCVD2
+        elif curr == TCP_STATES.SYN_RCVD2:
             if fin:
-                new = 'FIN_WAIT_1'
-        elif curr == 'SYN_SENT3':
+                new = TCP_STATES.FIN_WAIT_1
+        elif curr == TCP_STATES.SYN_SENT3:
             if ack:
-                new = 'SYN_RCVD2'
-        elif curr == 'SYN_SENT2':
+                new = TCP_STATES.SYN_RCVD2
+        elif curr == TCP_STATES.SYN_SENT2:
             if ack:
-                new = 'ESTABLISHED'
-        elif curr == 'ESTABLISHED':
+                new = TCP_STATES.ESTABLISHED
+        elif curr == TCP_STATES.ESTABLISHED:
             if fin:
-                new = 'FIN_WAIT_1'
+                new = TCP_STATES.FIN_WAIT_1
             else:
-                new = 'ESTABLISHED'
-        elif curr == 'CLOSE_WAIT1':
+                new = TCP_STATES.ESTABLISHED
+        elif curr == TCP_STATES.CLOSE_WAIT1:
             if fin and ack:
-                new = 'LAST_ACK'
+                new = TCP_STATES.LAST_ACK
             elif ack:
-                new = 'CLOSE_WAIT2'
-        elif curr == 'CLOSE_WAIT2':
+                new = TCP_STATES.CLOSE_WAIT2
+        elif curr == TCP_STATES.CLOSE_WAIT2:
             if fin:
-                new = 'LAST_ACK'
-        elif curr == 'CLOSING':
+                new = TCP_STATES.LAST_ACK
+        elif curr == TCP_STATES.CLOSING:
             if ack:
-                new = 'CLOSING2'
-        elif curr == 'FIN_WAIT_3':
+                new = TCP_STATES.CLOSING2
+        elif curr == TCP_STATES.FIN_WAIT_3:
             if ack:
-                new = 'CLOSED'
+                new = TCP_STATES.CLOSED
 
         if new is None:
             # Log undefined transitions and don't change the state of the
@@ -184,9 +188,11 @@ class PyWallCracker(object):
             for ready_fd in ready:
                 if ready_fd == egress_fd:
                     egress_packet = self.egress_queue.get_nowait()
+                    # print("[DEBUG]: EGRESS_PACKET={}".format(egress_packet))
                     self.handle_egress(egress_packet)
                 elif ready_fd == ingress_fd:
                     ingess_packet = self.ingress_queue.get_nowait()
+                    # print("[DEBUG]: INGRESS_PACKET={}".format(ingess_packet))
                     self.handle_ingress(ingess_packet)
                 elif ready_fd == query_fd:
                     self.handle_query(self.query_pipe.recv())

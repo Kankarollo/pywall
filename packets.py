@@ -258,16 +258,16 @@ class TCPPacket(TransportLayerPacket):
         self._src_port, self._dst_port = unpack('!HH', buff[0:4])
         self._seq_num, self._ack_num = unpack('!II', buff[4:12])
         flags, self._win_size = unpack('!HH', buff[12:16])
-        self._data_offset = flags & 0xF000
-        self.flag_ns  = flags & 0x0100
-        self.flag_cwr = flags & 0x0080
-        self.flag_ece = flags & 0x0040
-        self.flag_urg = flags & 0x0020
-        self.flag_ack = flags & 0x0010
-        self.flag_psh = flags & 0x0008
-        self.flag_rst = flags & 0x0004
-        self.flag_syn = flags & 0x0002
-        self.flag_fin = flags & 0x0001
+        self._data_offset = (flags & 0xF000) >> 12
+        self.flag_ns  = (flags & 0x0100) >> 8
+        self.flag_cwr = (flags & 0x0080) >> 7
+        self.flag_ece = (flags & 0x0040) >> 6
+        self.flag_urg = (flags & 0x0020) >> 5
+        self.flag_ack = (flags & 0x0010) >> 4
+        self.flag_psh = (flags & 0x0008) >> 3
+        self.flag_rst = (flags & 0x0004) >> 2
+        self.flag_syn = (flags & 0x0002) >> 1
+        self.flag_fin = (flags & 0x0001)
         self._checksum, self._urg_ptr = unpack('!HH', buff[16:20])
         # can be parsed later if we care:
         self._options = buff[20:(self._data_offset * 4)]
