@@ -6,8 +6,10 @@ import os
 import logging
 
 import netfilterqueue as nfq
+import socket
 
 from packets import IPPacket, TCPPacket, to_tuple
+from utils.protocol_classifier import ProtocolClassifier, TCP_APPLICATION_PROTOCOLS
 
 _NFQ_INIT = 'iptables -I INPUT -j NFQUEUE --queue-num %d'
 _NFQ_CLOSE = 'iptables -D INPUT -j NFQUEUE --queue-num %d'
@@ -45,6 +47,7 @@ class PyWall(object):
         self.default = default
         self._start = 'INPUT'
         self._old_handler = None
+        self.streams = {}
 
     def add_chain(self, chain_name):
         """Add a new, empty chain."""
@@ -87,6 +90,17 @@ class PyWall(object):
     def callback(self, packet):
         """Accept packets from NFQueue."""
         pywall_packet = IPPacket(packet.get_payload())
+        tup = to_tuple(pywall_packet)
+        if pywall_packet.get_protocol() == socket.IPPROTO_TCP:
+            pywall_payload = pywall_packet.get_payload()
+            # Assign application protocol to TCP segment. If not found set default.
+            protocol = TCP_APPLICATION_PROTOCOLS.NOT_RECOGNIZED
+            if tup in self.streams:
+                protocol = self.streams[tup]
+            if protocol == TCP_APPLICATION_PROTOCOLS.NOT_RECOGNIZED:
+                protocol = ProtocolClassifier.check_protocol(pywall_payload)
+                self.streams[tup] = protocol
+            pywall_payload.set_app_protocol(protocol)
         self._apply_chain(self._start, packet, pywall_packet)
 
     def erect(self, **kwargs):
@@ -103,7 +117,6 @@ class PyWall(object):
             lock = kwargs.get('lock', None)
             if lock:
                 lock.release()
-
         try:
             nfqueue.run()
         except KeyboardInterrupt:

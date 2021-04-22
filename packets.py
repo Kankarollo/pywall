@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 from struct import unpack
 from abc import ABCMeta
 from abc import abstractmethod
+from utils.protocol_classifier import TCP_APPLICATION_PROTOCOLS
 import socket
 
 # A list of IP Protocol numbers, taken directly from IANA.
@@ -255,6 +256,7 @@ class TCPPacket(TransportLayerPacket):
         self._parse_header(buff)
 
     def _parse_header(self, buff):
+        self._buff = buff[:]
         self._src_port, self._dst_port = unpack('!HH', buff[0:4])
         self._seq_num, self._ack_num = unpack('!II', buff[4:12])
         flags, self._win_size = unpack('!HH', buff[12:16])
@@ -273,6 +275,13 @@ class TCPPacket(TransportLayerPacket):
         self._options = buff[20:(self._data_offset * 4)]
         self._total_length = len(buff)
         self._body = buff[self.get_header_len():]
+        self.application_protocol = TCP_APPLICATION_PROTOCOLS.TCP
+
+    def get_raw_packet(self):
+        return self._buff
+
+    def set_app_protocol(self,protocol):
+        self.application_protocol = protocol
 
     def get_header_len(self):
         return self._data_offset * 4
@@ -291,7 +300,7 @@ class TCPPacket(TransportLayerPacket):
 
     def __unicode__(self):
         """Returns a printable version of the TCP header"""
-        return u'TCP from %d to %d' % (self._src_port, self._dst_port)
+        return u'TCP from %d to %d, protocol:%d' % (self._src_port, self._dst_port, self.application_protocol)
 
 
 class UDPPacket(TransportLayerPacket):

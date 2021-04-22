@@ -6,10 +6,11 @@ import multiprocessing as mp
 import logging
 import argparse
 
+from datetime import date
 import config
 import egress
 import contrack
-from py_log import initialize_logging, log_server
+from py_log import initialize_logging, log_server, clean_log_files
 
 
 def run_pywall(conf, packet_queue, query_pipe, kwargs):
@@ -58,6 +59,9 @@ def main(conf, loglevel, filename, **kwargs):
     kwargs['loglevel'] = loglevel
     kwargs['logqueue'] = log_queue
 
+    # Check if directory with log files isn't too big, clean if have to
+    clean_log_files(file_limit=20)
+
     # Start logging for the connection tracker.
     initialize_logging(loglevel, log_queue)
 
@@ -91,6 +95,6 @@ if __name__ == '__main__':
                                                       'WARNING', 'ERROR',
                                                       'CRITICAL'],
                         help='set verbosity of logging', default='INFO')
-    parser.add_argument('-f', '--log-file', help='set log file', default=None)
+    parser.add_argument('-f', '--log-file', help='set log file', default="logfiles/{}-logfile.log".format(str(date.today())))
     args = parser.parse_args()
     main(args.config, args.log_level, args.log_file)

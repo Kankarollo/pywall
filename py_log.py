@@ -10,6 +10,7 @@ backported to Python 2.
 
 import logging
 import time
+import os, os.path
 from logging import StreamHandler, FileHandler
 
 from logutils.queue import QueueHandler, QueueListener
@@ -74,3 +75,11 @@ def log_server(level, queue, filename, mode='w'):
         pass
     finally:
         listener.stop()
+
+def clean_log_files(file_limit=20):
+    DIR = os.path.join(os.getcwd(),"logfiles")
+    files = [(name,time.ctime(os.path.getmtime(os.path.join(DIR,name)))) for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR,name))]
+    if len(files) > file_limit:
+        files_sorted = sorted(files, key=lambda x: x[1])
+        for file in files_sorted[file_limit:]:
+            os.remove(os.path.join(DIR,file[0]))

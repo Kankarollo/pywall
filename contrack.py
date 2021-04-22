@@ -5,8 +5,25 @@ from __future__ import print_function
 
 import select
 import logging
-from config import TCP_STATES
+from enum import Enum
 
+class TCP_STATES(Enum):
+    """TCP STATES USED TO TRACK CONNECTION GATHERED IN ONE PLACE"""
+    CLOSED = 0,
+    SYN_RCVD1 = 1,
+    SYN_RCVD2 = 2,
+    SYN_SENT1 = 3,
+    SYN_SENT2 = 4,
+    SYN_SENT3 = 5,
+    CLOSE_WAIT1 = 6,
+    CLOSE_WAIT2 = 7,
+    FIN_WAIT_1 = 8,
+    FIN_WAIT_2 = 9,
+    FIN_WAIT_3 = 10,
+    LAST_ACK = 11,
+    CLOSING = 12,
+    CLOSING2 = 13,
+    ESTABLISHED = 14,
 
 class PyWallCracker(object):
     """Central TCP connection tracking process and class.
@@ -47,60 +64,60 @@ class PyWallCracker(object):
         # print("[DEBUG]: CURR = {}".format(curr))
         # print("[DEBUG]: TCP_STATES.CLOSED = {}".format(TCP_STATES.CLOSED))
         l = logging.getLogger('pywall.contrack')
-        new = None
+        tcp_state = None
         if curr == TCP_STATES.CLOSED:
             if syn:
-                new = TCP_STATES.SYN_RCVD1
+                tcp_state = TCP_STATES.SYN_RCVD1
             else:  # Otherwise, assume this was started before firewall ran.
-                new = TCP_STATES.ESTABLISHED
+                tcp_state = TCP_STATES.ESTABLISHED
         elif curr == TCP_STATES.SYN_RCVD2:
             if ack:
-                new = TCP_STATES.ESTABLISHED
+                tcp_state = TCP_STATES.ESTABLISHED
         elif curr == TCP_STATES.SYN_SENT1:
             if syn and ack:
-                new = TCP_STATES.SYN_SENT2
+                tcp_state = TCP_STATES.SYN_SENT2
             elif syn:
-                new = TCP_STATES.SYN_SENT3
+                tcp_state = TCP_STATES.SYN_SENT3
         elif curr == TCP_STATES.ESTABLISHED:
             if fin:
-                new = TCP_STATES.CLOSE_WAIT1
+                tcp_state = TCP_STATES.CLOSE_WAIT1
             else:
-                new = TCP_STATES.ESTABLISHED
+                tcp_state = TCP_STATES.ESTABLISHED
         elif curr == TCP_STATES.FIN_WAIT_1:
             if fin and ack:
-                new = TCP_STATES.FIN_WAIT_3
+                tcp_state = TCP_STATES.FIN_WAIT_3
             elif ack:
-                new = TCP_STATES.FIN_WAIT_2
+                tcp_state = TCP_STATES.FIN_WAIT_2
             elif fin:
-                new = TCP_STATES.CLOSING
+                tcp_state = TCP_STATES.CLOSING
         elif curr == TCP_STATES.FIN_WAIT_2:
             if fin:
-                new = TCP_STATES.FIN_WAIT_3
+                tcp_state = TCP_STATES.FIN_WAIT_3
         elif curr == TCP_STATES.CLOSING:
             if ack:
-                new = TCP_STATES.FIN_WAIT_3
+                tcp_state = TCP_STATES.FIN_WAIT_3
         elif curr == TCP_STATES.CLOSING2:
             if ack:
-                new = TCP_STATES.CLOSED
+                tcp_state = TCP_STATES.CLOSED
         elif curr == TCP_STATES.LAST_ACK:
             if ack:
-                new = TCP_STATES.CLOSED
+                tcp_state = TCP_STATES.CLOSED
 
-        if new is None:
+        if tcp_state is None:
             # Log undefined transitions and don't change the state of the
             # connection.
-            new = curr
+            tcp_state = curr
             l.error('RCV: %r (%s): syn=%r, ack=%r, fin=%r => %s'
                     ' (UNDEFINED TRANSITION)' %
-                    (tup, curr, syn, ack, fin, new))
+                    (tup, curr, syn, ack, fin, tcp_state))
         else:
             # Log other transitions at the lowest level, in case we need to
             # debug.
             l.debug('RCV: %r (%s): syn=%r, ack=%r, fin=%r => %s' %
-                    (tup, curr, syn, ack, fin, new))
+                    (tup, curr, syn, ack, fin, tcp_state))
 
         # Update the connection status.
-        self.connections[tup] = new
+        self.connections[tup] = tcp_state
 
     def handle_egress(self, report):
         """Handle an egress packet 'report'.
@@ -113,65 +130,66 @@ class PyWallCracker(object):
         curr = self.connections.get(tup, TCP_STATES.CLOSED)
         # print("[DEBUG]: CURR = {}".format(curr))
         l = logging.getLogger('pywall.contrack')
-        new = None
+        tcp_state = None
         if curr == TCP_STATES.CLOSED:
             if syn:
-                new = TCP_STATES.SYN_SENT1
+                tcp_state = TCP_STATES.SYN_SENT1
             else:  # Assume this was running before hand.
-                new = TCP_STATES.ESTABLISHED
+                tcp_state = TCP_STATES.ESTABLISHED
         elif curr == TCP_STATES.SYN_SENT1:
             if syn:
-                new = TCP_STATES.SYN_SENT1  # This means we are retrying a connection.
+                tcp_state = TCP_STATES.SYN_SENT1  # This means we are retrying a connection.
         elif curr == TCP_STATES.SYN_RCVD1:
             if syn and ack:
-                new = TCP_STATES.SYN_RCVD2
+                tcp_state = TCP_STATES.SYN_RCVD2
         elif curr == TCP_STATES.SYN_RCVD2:
             if fin:
-                new = TCP_STATES.FIN_WAIT_1
+                tcp_state = TCP_STATES.FIN_WAIT_1
         elif curr == TCP_STATES.SYN_SENT3:
             if ack:
-                new = TCP_STATES.SYN_RCVD2
+                tcp_state = TCP_STATES.SYN_RCVD2
         elif curr == TCP_STATES.SYN_SENT2:
             if ack:
-                new = TCP_STATES.ESTABLISHED
+                tcp_state = TCP_STATES.ESTABLISHED
         elif curr == TCP_STATES.ESTABLISHED:
             if fin:
-                new = TCP_STATES.FIN_WAIT_1
+                tcp_state = TCP_STATES.FIN_WAIT_1
             else:
-                new = TCP_STATES.ESTABLISHED
+                tcp_state = TCP_STATES.ESTABLISHED
         elif curr == TCP_STATES.CLOSE_WAIT1:
             if fin and ack:
-                new = TCP_STATES.LAST_ACK
+                tcp_state = TCP_STATES.LAST_ACK
             elif ack:
-                new = TCP_STATES.CLOSE_WAIT2
+                tcp_state = TCP_STATES.CLOSE_WAIT2
         elif curr == TCP_STATES.CLOSE_WAIT2:
             if fin:
-                new = TCP_STATES.LAST_ACK
+                tcp_state = TCP_STATES.LAST_ACK
         elif curr == TCP_STATES.CLOSING:
             if ack:
-                new = TCP_STATES.CLOSING2
+                tcp_state = TCP_STATES.CLOSING2
         elif curr == TCP_STATES.FIN_WAIT_3:
             if ack:
-                new = TCP_STATES.CLOSED
+                tcp_state = TCP_STATES.CLOSED
 
-        if new is None:
+        if tcp_state is None:
             # Log undefined transitions and don't change the state of the
             # connection.
-            new = curr
+            tcp_state = curr
             l.error('SND: %r (%s): syn=%r, ack=%r, fin=%r => %s'
                     ' (UNDEFINED TRANSITION)' %
-                    (tup, curr, syn, ack, fin, new))
+                    (tup, curr, syn, ack, fin, tcp_state))
         else:
             # Log other transitions at the lowest level, in case we need to
             # debug.
             l.debug('SND: %r (%s): syn=%r, ack=%r, fin=%r => %s' %
-                    (tup, curr, syn, ack, fin, new))
+                    (tup, curr, syn, ack, fin, tcp_state))
 
-        self.connections[tup] = new
+        self.connections[tup] = tcp_state
 
     def handle_query(self, con_tuple):
         """Take a query, load the state, and return it in the query pipe."""
-        self.query_pipe.send(self.connections.get(con_tuple, 'CLOSED'))
+
+        self.query_pipe.send(self.connections.get(con_tuple, TCP_STATES.CLOSED))
 
     def run(self):
         """Run the connection tracking process.

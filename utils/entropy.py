@@ -1,7 +1,6 @@
 from __future__ import print_function
 import math
 
-
 class Entropy():
 
     def calculate_shannon(self, data):

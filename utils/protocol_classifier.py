@@ -1,6 +1,62 @@
 from __future__ import print_function
 from scapy.all import *
 from scapy_ssl_tls.ssl_tls import *
+from scapy.layers.inet import IP, TCP
+from enum import Enum
+
+class TCP_APPLICATION_PROTOCOLS(Enum):
+    """
+    Application protocols that we want to recognize inside TCP segments. 
+    Numbers assigned to it represents typical ports that are used by these protocols.
+    """
+    TCP = 0
+    SSH = 22
+    TLS = 443
+    OPENVPN = 1194
+    TEST = 2137
+    HTTP = 80
+    NOT_RECOGNIZED = -1
+
+
+class ProtocolClassifier:
+    @staticmethod
+    def check_protocol(tcp_packet):
+        """
+        Classify protocol based on data inside tcp_packet
+        """
+        protocol = TCP_APPLICATION_PROTOCOLS.NOT_RECOGNIZED
+        if ProtocolClassifier.is_tls(tcp_packet):
+            protocol = TCP_APPLICATION_PROTOCOLS.TLS
+        elif ProtocolClassifier.is_ssh(tcp_packet):
+            protocol = TCP_APPLICATION_PROTOCOLS.SSH
+        elif ProtocolClassifier.is_openvpn(tcp_packet):
+            protocol = TCP_APPLICATION_PROTOCOLS.OPENVPN
+        elif ProtocolClassifier.is_http(tcp_packet):
+            protocol = TCP_APPLICATION_PROTOCOLS.HTTP
+
+        return protocol
+
+    @staticmethod
+    def is_tls(tcp_packet):
+        """Checking is packet has TLS layer using scapy library."""
+        scapy_packet = TCP(tcp_packet.get_raw_packet())
+        return scapy_packet.haslayer(TLS)
+
+    @staticmethod
+    def is_ssh(tcp_packet):
+        """Check if packet is using SSH. Temporarily classifying based only on src and dst ports."""
+        return tcp_packet.get_src_port()==22 or tcp_packet.get_dst_port()==22
+
+    @staticmethod
+    def is_openvpn(tcp_packet):
+        """Check if packet is using OpenVPN. Temporarily classifying based only on src and dst ports."""
+        return tcp_packet.get_src_port()==1194 or tcp_packet.get_dst_port()==1194
+    
+    @staticmethod
+    def is_http(tcp_packet):
+        """Check if packet is using OpenVPN. Temporarily classifying based only on src and dst ports."""
+        return ((tcp_packet.get_src_port()==80 or tcp_packet.get_dst_port()==80) or 
+            (tcp_packet.get_src_port()==8080 or tcp_packet.get_dst_port()==8080))
 
 
 def main():
@@ -9,9 +65,13 @@ def main():
     packets = rdpcap("utils/test_pcap_files/tlsPackets_test.pcap")
     for packet in packets:
         if packet.haslayer(TLS):
-            print("[DEBUG]: Elo Jestem Z TLSA!!!")
+            print("[DEBUG]: TLS HERE!!!")
         else:
-            print("[DEBUG]: Elo Jestem Z KADS INDZIEJ!!!")
+            print("[DEBUG]: TLS NOT FOUND!!!")
+
+def test():
+    print("[TEST]: This is test method for testing purpose.")
 
 if __name__ == '__main__':
-    main()
+    # main()
+    test()
