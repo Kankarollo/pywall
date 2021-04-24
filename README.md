@@ -1,9 +1,19 @@
 PyWall
 ======
 
-**Note: This version of PyWall is modified for purposes of my master thesis purposes - "Blocking encrypted malware TCP traffic."**
-
 A Python firewall: Because slow networks are secure networks.
+
+Modifications
+-----------
+
+This version of PyWall is modified for purposes of my master thesis purposes - "Blocking encrypted malware TCP traffic."
+
+Added features:
+  - Tracking TCP streams
+  - Recognizing basic appplications protocol (TLS,SSH, OpenVPN)
+  - Recognining encrypted traffics using [HEDGE](https://github.com/francasino/traffic_analysis). - F. Casino, K. R. Choo and C. Patsakis, "HEDGE: Efficient Traffic Classification of Encrypted and Compressed Packets," in IEEE Transactions on Information Forensics and Security, vol. 14, no. 11, pp. 2916-2926, Nov. 2019. doi: 10.1109/TIFS.2019.2911156
+
+
 
 
 Installation
