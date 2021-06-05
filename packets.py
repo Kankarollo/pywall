@@ -298,6 +298,9 @@ class TCPPacket(TransportLayerPacket):
     def get_body(self):
         return str(self._body)
 
+    def get_app_protocol(self):
+        return self.application_protocol
+
     def __unicode__(self):
         """Returns a printable version of the TCP header"""
         return u'TCP from %d to %d, protocol:%d' % (self._src_port, self._dst_port, self.application_protocol)

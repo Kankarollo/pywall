@@ -6,7 +6,15 @@ import bitarray
 from time import time
 import math
 import os
-import sp800_22_all_tests.sp800_22_approximate_entropy_test as test
+
+from sp800_22_all_tests import sp800_22_approximate_entropy_test
+
+def load_bits_from_file(self, filename):
+        a = bitarray.bitarray()
+        with open(filename, 'rb') as fh:
+            a.fromfile(fh)
+        tmp=a.to01()
+        return map(int,tmp)
 
 class Hedge():
 
@@ -18,11 +26,9 @@ class Hedge():
             'approximate_entropy_test',
             ]
 
-    def read_bits2(self,filename):
-        a = bitarray.bitarray()
-        with open(filename, 'rb') as fh:
-            a.fromfile(fh)
-        tmp=a.to01()
+    def mono_test(self,bits):
+        tmp="".join(map(str,bits))
+        a = bitarray.bitarray(tmp)
         n = len(a)
         ones = a.count()
         zeroes=n-ones
@@ -32,29 +38,35 @@ class Hedge():
 
         success = (p >= 0.01)
 
-        return map(int,tmp),success
+        return success
 
-    def execute_tests(self, filename, bigendian):
-        bits,mono = self.read_bits2(filename)
-        gotresult=False
+    def execute_tests(self, tcp_body):
+        a = bitarray.bitarray()
+        a.frombytes(tcp_body)
+        bits = map(int,a.to01())
+        # mono = self.mono_test(bits)
+        gotresult = False
         results = []
 
-        if mono==False:
-            print ("[DEBUG]: Mono=False")
+        # if mono==False:
+        #     print ("[DEBUG]: Mono=False")
+        #     return results
+        if len(a) == 0:
+            print("[DEBUG]: LENGTH=0")
             return results
         
         for testname in self.testlist:
             # print("TEST: %s" % testname)
-            m = __import__ ("sp800_22_all_tests.sp800_22_"+testname)
-            func = getattr(getattr(m,"sp800_22_"+testname),testname)
+            m = __import__ ("utils.sp800_22_all_tests.sp800_22_" + testname)
+            func = getattr(getattr(getattr(m,"sp800_22_all_tests"),"sp800_22_"+testname),testname)
             (success,p,plist) = func(bits)
             summary_name = testname
             if success:
                 print("ENCRYPTED")
                 summary_result = "ENCRYPTED"
             else:
-                print("NOT ENCRYPTED")
-                summary_result = "NOT ENCRYPTED"
+                print("COMPRESSED")
+                summary_result = "COMPRESSED"
 
             if p != None:
                 print("[DEBUG]: P="+str(p))
@@ -66,19 +78,29 @@ class Hedge():
                 summary_p = str(min(plist))
 
             results.append((summary_name,summary_p, summary_result))
-            if summary_result == "NOT ENCRYPTED":
+            if summary_result == "COMPRESSED":
                 break
         
         return results
 
+    def final_verdict(self, results):
+        values = [x[2] for x in results if x[2] == "COMPRESSED"]
+        compressed_value = float(len(values))
+        certainty = float(encrypted_value/len(results))
+        if certainty > 0.7:
+            return "COMPRESSED"
+        else:
+            return "ENCRYPTED"
+        
+
     def is_encrypted(self,results):
         val = 1
-        is_encrypted = True
+        isEncrypted = True
         for result in results:
             summary_name,summary_p, summary_result = result
-            if summary_result=="NOT ENCRYPTED":
-                is_encrypted = False
-        return is_encrypted
+            if summary_result=="COMPRESSED":
+                isEncrypted = False
+        return isEncrypted
         
     def print_summary(self,results):
         if not results:
@@ -92,18 +114,17 @@ class Hedge():
         if self.is_encrypted(results):
             print ("VERDICT:{}".format("ENCRYPTED"))
         else:
-            print ("VERDICT:{}".format("NOT ENCRYPTED"))
+            print ("VERDICT:{}".format("COMPRESSED"))
             
 
 def main(args):
-    bigendian = args.be
     filename = args.filename
     hedge = Hedge()
-    results = hedge.execute_tests(filename,bigendian)
+    bits = load_bits_from_file(filename)
+    results = hedge.execute_tests(bits)
     hedge.print_summary(results)
     # print("Tests of Distinguishability from Random")
     
-    # bits = read_bits_from_file(filename,bigendian)
     
 if __name__ == '__main__':
     import argparse
